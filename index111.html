@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>成绩分析报告生成器</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: "SimSun", Arial, sans-serif;
+      margin: 20px;
+      background-color: #f9f9f9;
+      color: #333;
+      line-height: 1.6;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 28px;
+      color: #4CAF50;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: auto;
+      padding: 20px;
+      background: #ffffff;
+      border-radius: 10px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
+
+    label {
+      font-size: 16px;
+      font-weight: bold;
+      margin-top: 10px;
+      display: block;
+    }
+
+    input {
+      width: 100%;
+      padding: 8px;
+      margin: 5px 0 15px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      box-sizing: border-box;
+    }
+
+    canvas {
+      display: block;
+      margin: 20px auto;
+    }
+
+    button {
+      display: block;
+      width: 100%;
+      padding: 15px;
+      font-size: 18px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+      margin-bottom: 20px;
+    }
+
+    button:hover {
+      background-color: #45a049;
+    }
+
+    .module {
+      border: 2px solid #4CAF50;
+      border-radius: 8px;
+      padding: 10px;
+      margin-top: 20px;
+      background-color: #e3f2fd;
+    }
+
+    .module-title {
+      font-weight: bold;
+      font-size: 18px;
+      color: #4CAF50;
+      margin-bottom: 10px;
+    }
+
+    .module-content {
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .module-chart {
+      width: 45%;
+    }
+
+    .module-comments {
+      width: 45%;
+      font-size: 16px;
+      color: #333;
+      line-height: 1.8;
+    }
+
+    .high-score {
+      color: #4CAF50;
+      font-weight: bold;
+    }
+
+    .medium-score {
+      color: #FFC107;
+      font-weight: bold;
+    }
+
+    .low-score {
+      color: #F44336;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>成绩分析报告生成器</h1>
+
+    <label for="studentName">学生姓名:</label>
+    <input type="text" id="studentName" placeholder="请输入学生姓名">
+
+    <label for="studentGrade">年级:</label>
+    <input type="text" id="studentGrade" placeholder="请输入年级">
+
+    <label>各模块总分:</label>
+    <label>计算总分:</label><input type="number" id="totalMath1" placeholder="请输入计算模块总分">
+    <label>图形总分:</label><input type="number" id="totalMath2" placeholder="请输入图形模块总分">
+    <label>应用题总分:</label><input type="number" id="totalMath3" placeholder="请输入应用题模块总分">
+
+    <label>学生得分:</label>
+    <label>计算得分:</label><input type="number" id="scoreMath1" placeholder="请输入计算模块得分">
+    <label>图形得分:</label><input type="number" id="scoreMath2" placeholder="请输入图形模块得分">
+    <label>应用题得分:</label><input type="number" id="scoreMath3" placeholder="请输入应用题模块得分">
+
+    <button onclick="generateCharts()">生成图表</button>
+    <button onclick="generateImage()">生成总结图片</button>
+
+    <div>
+      <h3>得分比例雷达图:</h3>
+      <canvas id="radarChart" width="600" height="600"></canvas>
+    </div>
+
+    <div>
+      <h3>模块得分对比条形图:</h3>
+      <canvas id="barChart" width="600" height="400"></canvas>
+    </div>
+
+    <div class="module">
+      <div class="module-title">[计算] 模块分析</div>
+      <div class="module-content">
+        <div class="module-chart">
+          <canvas id="chartMath1" width="300" height="300"></canvas>
+        </div>
+        <div class="module-comments" id="commentsMath1"></div>
+      </div>
+    </div>
+
+    <div class="module">
+      <div class="module-title">[图形] 模块分析</div>
+      <div class="module-content">
+        <div class="module-chart">
+          <canvas id="chartMath2" width="300" height="300"></canvas>
+        </div>
+        <div class="module-comments" id="commentsMath2"></div>
+      </div>
+    </div>
+
+    <div class="module">
+      <div class="module-title">[应用题] 模块分析</div>
+      <div class="module-content">
+        <div class="module-chart">
+          <canvas id="chartMath3" width="300" height="300"></canvas>
+        </div>
+        <div class="module-comments" id="commentsMath3"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    const radarCtx = document.getElementById('radarChart').getContext('2d');
+    const barCtx = document.getElementById('barChart').getContext('2d');
+
+    const chartMath1Ctx = document.getElementById('chartMath1').getContext('2d');
+    const chartMath2Ctx = document.getElementById('chartMath2').getContext('2d');
+    const chartMath3Ctx = document.getElementById('chartMath3').getContext('2d');
+
+    let radarChart = new Chart(radarCtx, {
+      type: 'radar',
+      data: {
+        labels: ["计算", "图形", "应用题"],
+        datasets: [{
+          label: "得分比例",
+          data: [0, 0, 0],
+          backgroundColor: 'rgba(54, 162, 235, 0.2)',
+          borderColor: 'rgba(54, 162, 235, 1)',
+        }]
+      },
+      options: {
+        scale: {
+          ticks: {
+            beginAtZero: true,
+            max: 1,
+            min: 0,
+            stepSize: 0.1,
+          },
+          pointLabels: { fontSize: 14 }
+        }
+      }
+    });
+
+    let barChart = new Chart(barCtx, {
+      type: 'bar',
+      data: {
+        labels: ["计算", "图形", "应用题"],
+        datasets: [
+          { label: "总分", data: [0, 0, 0], backgroundColor: 'rgba(75, 192, 192, 0.2)', borderColor: 'rgba(75, 192, 192, 1)', borderWidth: 1 },
+          { label: "得分", data: [0, 0, 0], backgroundColor: 'rgba(255, 159, 64, 0.2)', borderColor: 'rgba(255, 159, 64, 1)', borderWidth: 1 }
+        ]
+      },
+      options: { scales: { y: { beginAtZero: true } } }
+    });
+
+    function updateModuleChart(ctx, score, total, commentsId) {
+      const percentage = total > 0 ? (score / total) : 0;
+      const color = percentage >= 0.85 ? '#4CAF50' : percentage >= 0.7 ? '#FFC107' : '#F44336';
+      const comment = percentage >= 0.85 ? '非常棒！非常棒！非常棒！' : percentage >= 0.7 ? '还可以，还可以，还可以。' : '急需改进，急需改进，急需改进。';
+
+      new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: ['得分', '未得分'],
+          datasets: [{
+            data: [score, total - score],
+            backgroundColor: [color, '#e0e0e0'],
+            hoverOffset: 4
+          }]
+        },
+        options: {
+          plugins: {
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  const label = context.label;
+                  const value = context.raw;
+                  return `${label}: ${value}`;
+                }
+              }
+            }
+          }
+        }
+      });
+
+      document.getElementById(commentsId).innerHTML = `<span class="${color === '#4CAF50' ? 'high-score' : color === '#FFC107' ? 'medium-score' : 'low-score'}">${comment}</span>`;
+    }
+
+    function generateCharts() {
+      const totalMath = [parseFloat(document.getElementById("totalMath1").value) || 0, parseFloat(document.getElementById("totalMath2").value) || 0, parseFloat(document.getElementById("totalMath3").value) || 0];
+      const scores = [parseFloat(document.getElementById("scoreMath1").value) || 0, parseFloat(document.getElementById("scoreMath2").value) || 0, parseFloat(document.getElementById("scoreMath3").value) || 0];
+      const ratios = totalMath.map((total, index) => total > 0 ? (scores[index] / total) : 0);
+
+      radarChart.data.datasets[0].data = ratios;
+      radarChart.update();
+
+      barChart.data.datasets[0].data = totalMath;
+      barChart.data.datasets[1].data = scores;
+      barChart.update();
+
+      updateModuleChart(chartMath1Ctx, scores[0], totalMath[0], 'commentsMath1');
+      updateModuleChart(chartMath2Ctx, scores[1], totalMath[1], 'commentsMath2');
+      updateModuleChart(chartMath3Ctx, scores[2], totalMath[2], 'commentsMath3');
+    }
+
+    function generateImage() {
+      const studentName = document.getElementById("studentName").value || "未知";
+      const studentGrade = document.getElementById("studentGrade").value || "未知";
+
+      // 创建新的 Canvas 元素来合并所有内容
+      const canvas = document.createElement('canvas');
+      const radarCanvas = document.getElementById('radarChart');
+      const barCanvas = document.getElementById('barChart');
+      const chartMath1Canvas = document.getElementById('chartMath1');
+      const chartMath2Canvas = document.getElementById('chartMath2');
+      const chartMath3Canvas = document.getElementById('chartMath3');
+
+      canvas.width = 1200;  // 宽度增加
+      canvas.height = 2500; // 高度增加以容纳更多内容
+
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // 标题部分
+      ctx.fillStyle = "#4CAF50";
+      ctx.font = "32px SimSun";
+      ctx.fillText(`成绩分析报告`, 20, 40);
+      ctx.fillStyle = "#333";
+      ctx.font = "24px SimSun";
+      ctx.fillText(`学生姓名: ${studentName}`, 20, 80);
+      ctx.fillText(`年级: ${studentGrade}`, 20, 120);
+
+      // 分隔线
+      ctx.beginPath();
+      ctx.moveTo(0, 140);
+      ctx.lineTo(canvas.width, 140);
+      ctx.strokeStyle = "#4CAF50";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // 绘制雷达图
+      ctx.drawImage(radarCanvas, 100, 160, 800, 600);
+      ctx.fillStyle = "#333";
+      ctx.font = "20px SimSun";
+      ctx.fillText("得分比例雷达图", 100, 780);
+
+      // 绘制条形图
+      ctx.drawImage(barCanvas, 100, 820, 800, 400);
+      ctx.fillText("模块得分对比条形图", 100, 1230);
+
+      // 分隔线
+      ctx.beginPath();
+      ctx.moveTo(0, 1250);
+      ctx.lineTo(canvas.width, 1250);
+      ctx.stroke();
+
+      // 绘制计算模块图表
+      ctx.drawImage(chartMath1Canvas, 100, 1300, 300, 300);
+      ctx.fillStyle = "#4CAF50";
+      ctx.font = "20px SimSun";
+      ctx.fillText("计算模块分析", 100, 1600);
+
+      // 绘制图形模块图表
+      ctx.drawImage(chartMath2Canvas, 500, 1300, 300, 300);
+      ctx.fillText("图形模块分析", 500, 1600);
+
+      // 绘制应用题模块图表
+      ctx.drawImage(chartMath3Canvas, 900, 1300, 300, 300);
+      ctx.fillText("应用题模块分析", 900, 1600);
+
+      // 获取评语内容，并去除 <span> 标签
+      const commentsMath1 = document.getElementById('commentsMath1').innerText;
+      const commentsMath2 = document.getElementById('commentsMath2').innerText;
+      const commentsMath3 = document.getElementById('commentsMath3').innerText;
+
+      // 添加模块分析评语
+      ctx.fillStyle = "#333";
+      ctx.font = "18px SimSun";
+      ctx.fillText(`计算模块评语: ${commentsMath1}`, 100, 1700);
+      ctx.fillText(`图形模块评语: ${commentsMath2}`, 100, 1750);
+      ctx.fillText(`应用题模块评语: ${commentsMath3}`, 100, 1800);
+
+      // 分隔线
+      ctx.beginPath();
+      ctx.moveTo(0, 1850);
+      ctx.lineTo(canvas.width, 1850);
+      ctx.stroke();
+
+      // 页脚
+      ctx.fillStyle = "#999";
+      ctx.font = "16px SimSun";
+      ctx.fillText("成绩分析报告生成器 | 2025", canvas.width - 250, canvas.height - 50);
+
+      // 获取图像数据并下载
+      const imgData = canvas.toDataURL("image/png");
+      const link = document.createElement('a');
+      link.href = imgData;
+      link.download = `${studentName}_总结报告.png`;
+      link.click();
+    }
+  </script>
+</body>
+</html>
